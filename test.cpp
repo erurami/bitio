@@ -6,7 +6,7 @@ int main()
 {
     Bitio::File bitFile;
 
-    bitFile.Open("test.txt", "rb");
+    bitFile.Open("test.txt", "r");
 
     bool bits_in_byte[8];
 
@@ -20,4 +20,13 @@ int main()
             printf("%d\n", bits_in_byte[j]);
         }
     }
+    printf("\n");
+
+    bitFile.Open("write_test.txt", "w");
+
+    for (int i = 0; i < 30; i++)
+    {
+        bitFile.PutBit(i % 2 == 0);
+    }
+
 }
