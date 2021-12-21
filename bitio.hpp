@@ -1,6 +1,11 @@
 
 #include <stdio.h>
+#include <string.h>
+
 #pragma once
+
+#define FILE_INFO_READ 1
+#define FILE_INFO_WRITE 2
 
 namespace Bitio
 {
@@ -8,13 +13,22 @@ namespace Bitio
     {
         private:
 
-            int mBitPosition_;
-            unsigned long long mPosition_;
+            int BitPosition_;
+            unsigned long long Position_;
 
+            bool DidFileLoaded_;
+
+            int  OpeningMode;
+            // 1 : read
+            // 2 : write
+
+            // for reading mode
             int  CacheReadingChar_;
             bool pCacheReadingCharBits_[8];
 
-            bool DidFileLoaded_;
+            // for writing mode
+            int  CachewritingChar_;
+            bool pQueueingPutbits[8];
 
             void CalcBitsOfCharMember(void);
 
@@ -23,6 +37,7 @@ namespace Bitio
             FILE* pFile_;
 
             File();
+            ~File();
 
             void SeekBits (int position);
             void SeekBytes(int position);
@@ -33,11 +48,11 @@ namespace Bitio
             void PutBit (bool bit);
             void PutBits(bool* pBits, int putBits);
 
-            int  GetChar();
+            int  GetChar(void);
             void PutChar(int character);
 
-            bool Open(char* pPath);
-            void UseFileObj(FILE* pFile);
+            bool Open(char* pPath, const char* mode);
+            void UseFileObj(FILE* pFile, const char* mode);
     };
 };
 
@@ -47,24 +62,40 @@ Bitio::File::File()
     pFile_ = NULL;
 }
 
+Bitio::File::~File()
+{
+    if (DidFileLoaded_ == true && OpeningMode == 1)
+    {
+        fclose(pFile_);
+    }
+    else if (DidFileLoaded_ == true && OpeningMode == 2)
+    {
+    }
+}
+
+
+
+
 
 void Bitio::File::SeekBits(int position)
 {
-    mBitPosition_ = position;
+    BitPosition_ = position;
 }
+
 
 void Bitio::File::SeekBytes(int position)
 {
-    mPosition_ = position;
-    fseek(pFile_, mPosition_, SEEK_SET);
+    Position_ = position;
+    _fseeki64(pFile_, Position_, SEEK_SET);
 
-    CacheReadingChar_ = getchar(pFile_);
     CalcBitsOfCharMember();
 }
 
 
 
-bool Bitio::File::GetBit();
+
+
+bool Bitio::File::GetBit()
 {
 
     if (DidFileLoaded_ == false)
@@ -72,23 +103,110 @@ bool Bitio::File::GetBit();
         return false;
     }
 
-    mBitPosition_++;
-
-    if (mBitPosition_ >= 8)
+    if (BitPosition_ >= 8)
     {
-        mPosition_++;
+        Position_++;
 
-        CacheReadingChar_ = getchar(pFile_);
         CalcBitsOfCharMember();
 
-        mBitPosition_ %= 8;
+        BitPosition_ %= 8;
     }
 
-    return pCacheReadingCharBits_[mBitPosition_];
+    bool retval = pCacheReadingCharBits_[BitPosition_];
+
+    BitPosition_++;
+
+    return retval;
 }
 
-void Bitio::File::UseFileObj(FILE* pFile)
+
+bool Bitio::File::GetBits(bool* pBits, int getBits)
+{
+    if (DidFileLoaded_ == false)
+    {
+        return false;
+    }
+
+    for (int i = 0; i < getBits; i++)
+    {
+        pBits[i] = GetBit();
+    }
+
+    return true;
+}
+
+
+
+
+
+void Bitio::File::PutBit(bool bit)
+{
+}
+
+
+
+
+
+int  Bitio::File::GetChar(void)
+{
+    return fgetc(pFile_);
+}
+
+
+
+
+
+bool Bitio::File::Open(char* pPath, const char* mode)
+    // r read
+    // w write
+{
+
+    FILE* p_file;
+
+    p_file = fopen(pPath, mode);
+
+    if (p_file == NULL)
+    {
+        return false;
+    }
+
+    UseFileObj(p_file, mode);
+
+    return true;
+}
+
+void Bitio::File::UseFileObj(FILE* pFile, const char* mode)
 {
     pFile_ = pFile;
     DidFileLoaded_ = true;
+
+    Position_ = 0;
+    BitPosition_ = 0;
+
+    fseek(pFile_, 0L, SEEK_SET);
+
+    if (strcmp(mode, "r"))
+    {
+        OpeningMode = FILE_INFO_READ;
+        CalcBitsOfCharMember();
+    }
+
+    else if (strcmp(mode, "w"))
+    {
+        OpeningMode = FILE_INFO_WRITE;
+    }
+}
+
+
+
+void Bitio::File::CalcBitsOfCharMember()
+{
+    CacheReadingChar_ = GetChar();
+
+    int reading_char = CacheReadingChar_;
+    for (int i = 7; i >= 0; i--)
+    {
+        pCacheReadingCharBits_[i] = reading_char % 2;
+        reading_char >>= 1;
+    }
 }
