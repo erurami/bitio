@@ -1,3 +1,3 @@
 # BITIO
 
-file in and out in bit level.
+Bitwise file I/O library
